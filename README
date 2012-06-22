@@ -1,0 +1,13 @@
+Netfilter extension to match DNS query type
+===========================================
+
+Ondrej Caletka, 2012
+
+This is a fork of xt_dns netfilter extension,
+originally written by Bartłomiej Korupczyński
+http://software.klolik.org/xt_dns/
+
+
+This fork addes availability to match queries,
+which uses EDNS0 extension (RFC 2671). It still uses
+non-RFC compliant (yet fast) matching algorithm.
