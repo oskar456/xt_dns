@@ -1,0 +1,9 @@
+.*
+!.gitignore
+Module.symvers
+modules.order
+*.o
+*.ko
+*.mod.c
+*.so
+config.h
