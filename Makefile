@@ -38,7 +38,7 @@ xt_dns.ko: xt_dns.c xt_dns.h config.h
 # in case of problems add path to iptables sources like:
 # -I/usr/src/sources/iptables-1.4.2/include/
 libxt_dns.so: libxt_dns.c xt_dns.h config.h
-	$(CC) -Wall -shared -o libxt_dns.so libxt_dns.c
+	$(CC) -fPIC -Wall -shared -o libxt_dns.so libxt_dns.c
 
 module-install: xt_dns.ko
 	sync
