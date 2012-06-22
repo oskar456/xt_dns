@@ -78,7 +78,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		&& (dns[8] == 0x00) && (dns[9] == 0x00) && (dns[10] == 0x00) && (dns[11] == 0x01)
 		&& (dns[len-16] == 0x00) && (dns[len-15] == 0x00) && (dns[len-14] == info->type)
 		&& (dns[len-13] == 0x00) && (dns[len-12] == 0x01)
-        && (dns[len-2] == 0x00) && (dns[len-1] == 0x00);
+		&& (dns[len-2] == 0x00) && (dns[len-1] == 0x00);
 	return (is_match ^ info->invert) ? true : false;
 }
 
