@@ -44,7 +44,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	const struct xt_dns_info *info = par->matchinfo;
 
 	u8 *dns;
-	size_t len;
+	size_t len, offset;
 	bool is_match;
 
 	/* skip fragments */
@@ -59,27 +59,24 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	if (len < 17)
 		return false;
 
-	NFDEBUG("ipt_dns[%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x [...] %02x%02x %02x%02x %02x\n",
-		len,
+	/* offset is set to the end of all labels, pointing to the '.' root */
+	offset = 12;
+	while (dns[offset] > 0 && offset < len-4) {
+		offset += dns[offset] + 1;
+	}
+
+	NFDEBUG("ipt_dns[%d,%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x [...] %02x%02x %02x%02x %02x\n",
+		len, offset,
 		dns[0], dns[1], dns[2], dns[3], dns[4], dns[5], dns[6], dns[7],
 		dns[8], dns[9], dns[10], dns[11],
-		dns[len-5], dns[len-4], dns[len-3], dns[len-2], dns[len-1]);
+		dns[offset], dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4]);
 
-	/* !response_flag && opcode == query; qdcount=1, ancount=0, nscount=0, arcount=0, query for MX only */
+	/* !response_flag && opcode == query; qdcount>=1, type=info->type, class IN */
 	is_match = ((dns[2] & (NS_QR|NS_OPCODE)) == (NS_QR_QUERY|NS_OPCODE_QUERY))
-		&& (dns[4] == 0x00) && (dns[5] == 0x01) && (dns[6] == 0x00) && (dns[7] == 0x00)
-		&& (dns[8] == 0x00) && (dns[9] == 0x00) && (dns[10] == 0x00) && (dns[11] == 0x00)
-		&& (dns[len-5] == 0x00) && (dns[len-4] == 0x00) && (dns[len-3] == info->type)
-		&& (dns[len-2] == 0x00) && (dns[len-1] == 0x01);
+		&& (dns[4] == 0x00) && (dns[5] >= 0x01)
+		&& (dns[offset+1] == 0x00) && (dns[offset+2] == info->type)
+		&& (dns[offset+3] == 0x00) && (dns[offset+4] == 0x01);
 
-	/* !response_flag && opcode == query; qdcount=1, ancount=0, nscount=0, arcount=1, query for MX only, EDNS0 header with zero length */
-	is_match = is_match || ((dns[2] & (NS_QR|NS_OPCODE)) == (NS_QR_QUERY|NS_OPCODE_QUERY))
-		&& (dns[4] == 0x00) && (dns[5] == 0x01) && (dns[6] == 0x00) && (dns[7] == 0x00)
-		&& (dns[8] == 0x00) && (dns[9] == 0x00) && (dns[10] == 0x00) && (dns[11] == 0x01)
-		&& (dns[len-16] == 0x00) && (dns[len-15] == 0x00) && (dns[len-14] == info->type)
-		&& (dns[len-13] == 0x00) && (dns[len-12] == 0x01) && (dns[len-11] == 0x00)
-		&& (dns[len-10] == 0x00) && (dns[len-9] == 0x29)
-		&& (dns[len-2] == 0x00) && (dns[len-1] == 0x00);
 	return (is_match ^ info->invert) ? true : false;
 }
 
