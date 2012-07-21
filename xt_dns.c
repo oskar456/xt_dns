@@ -59,6 +59,13 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	if (len < 17)
 		return false;
 
+	/* check if we are dealing with DNS query */
+	/* !response_flag && opcode == query; qdcount>=1 */
+	is_match = ((dns[2] & (NS_QR|NS_OPCODE)) == (NS_QR_QUERY|NS_OPCODE_QUERY))
+		&& (dns[4] == 0x00) && (dns[5] >= 0x01);
+	if (!is_match)
+		goto out;
+
 	/* offset is set to the end of all labels, pointing to the '.' root */
 	offset = 12;
 	while (dns[offset] > 0 && offset < len-4) {
@@ -71,12 +78,11 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		dns[8], dns[9], dns[10], dns[11],
 		dns[offset], dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4]);
 
-	/* !response_flag && opcode == query; qdcount>=1, type=info->type, class IN */
-	is_match = ((dns[2] & (NS_QR|NS_OPCODE)) == (NS_QR_QUERY|NS_OPCODE_QUERY))
-		&& (dns[4] == 0x00) && (dns[5] >= 0x01)
-		&& (dns[offset+1] == 0x00) && (dns[offset+2] == info->type)
+	/* match if type=info->type, class IN */
+	is_match = (dns[offset+1] == 0x00) && (dns[offset+2] == info->type)
 		&& (dns[offset+3] == 0x00) && (dns[offset+4] == 0x01);
 
+out:
 	return (is_match ^ info->invert) ? true : false;
 }
 
