@@ -24,9 +24,6 @@
 //#define xtables_error exit_error
 
 
-/* match arguments */
-#define A_TYPE	"dns-query"
-
 struct {
 	char *name;
 	u_int8_t type;
@@ -46,9 +43,48 @@ struct {
 };
 
 static const struct option dns_opts[] = {
-	{ .name = A_TYPE, 1, NULL, '1' },
-	{ .name = NULL }
+	{ .name = "dns-query",		.has_arg = false,	.val = '1' },
+	{ .name = "dns-response",	.has_arg = false,	.val = '2' },
+	{ .name = "query-type",		.has_arg = true,	.val = '3' },
+	{ .name = "edns0",		.has_arg = false,	.val = '4' },
+	{ .name = "bufsize",		.has_arg = true,	.val = '5' },
+	XT_GETOPT_TABLEEND,
 };
+
+uint16_t parse_u16(const char *buf)
+{
+	unsigned int num;
+	
+	if (xtables_strtoui(buf, NULL, &num, 0, UINT16_MAX)) 
+		return num;
+
+	xt_params->exit_err(PARAMETER_PROBLEM,
+	           "invalid number `%s' specified", buf);
+}	
+
+
+static void parse_uint16_range(const char *rangestring, uint16_t *bufsize)
+{
+	char *buffer;
+	char *cp;
+
+	buffer = strdup(portstring);
+	if ((cp = strchr(buffer, ':')) == NULL)
+		bufsize[0] = bufsize[1] = parse_u16(buffer);
+	else {
+		*cp = '\0';
+		cp++;
+
+		bufsize[0] = buffer[0] ? parse_u16(buffer) : 0;
+		bufsize[1] = cp[0] ? parse_u16(cp) : 0xFFFF;
+
+		if (bufsize[1] < bufsize[0])
+			xtables_error(PARAMETER_PROBLEM,
+			          "invalid bufsize (min > max)");
+	}
+	free(buffer);
+}
+		
 
 static const char* find_type_name(u_int8_t type)
 {
@@ -92,15 +128,14 @@ static u_int8_t get_type(char *name)
 
 static void dns_help(void)
 {
-	printf("dns match options:\n--%s {A|NS|CNAME|SOA|PTR|MX|TXT|AAAA|SRV|A6|ANY|0-255}\n", A_TYPE);
-}
-
-static void dns_init(struct xt_entry_match *m)
-{
-	struct xt_dns_info *info = (void *) m->data;
-
-	info->invert = 0;
-	info->type = ns_t_any;
+	printf(
+"dns match options:\n"
+"[!] --dns-query	match DNS query\n"
+"[!] --dns-response	match DNS response\n"
+"[!] --query-type {A|NS|CNAME|SOA|PTR|MX|TXT|AAAA|SRV|A6|ANY|0-255}\n"
+"			match specific query type\n"
+"[!] --edns0		match packets with EDNS0 field\n"
+"    --bufsize value[:value] match EDNS0 buffer size\n");
 }
 
 static int dns_parse(int c, char **argv, int invert, unsigned int *flags,
@@ -154,7 +189,6 @@ static struct xtables_match dns_match = {
 	.size		= XT_ALIGN(sizeof(struct xt_dns_info)),
 	.userspacesize	= 0,
 	.help		= dns_help,
-	.init		= dns_init,
 	.parse		= dns_parse,
 	.print		= dns_print,
 	.save		= dns_save,
@@ -168,7 +202,6 @@ static struct xtables_match dns_match6 = {
 	.size		= XT_ALIGN(sizeof(struct xt_dns_info)),
 	.userspacesize	= 0,
 	.help		= dns_help,
-	.init		= dns_init,
 	.parse		= dns_parse,
 	.print		= dns_print,
 	.save		= dns_save,
