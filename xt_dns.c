@@ -1,8 +1,9 @@
 /*
  *	xt_dns
- *	Copyright (c) Bartlomiej Korupczynski, 2011
+ *      Copyright (c) Ondrej Caletka, 2013
+ *	based on xt_dns (c) Bartlomiej Korupczynski, 2011
  *
- *	This is kernel part of module used to match DNS MX queries
+ *	This is kernel part of module used to match DNS queries
  * 
  *	This file is distributed under the terms of the GNU General Public
  *	License (GPL). Copies of the GPL can be obtained from gnu.org/gpl.
@@ -35,6 +36,36 @@
 //#define HAVE_XT_MATCH_PARAM
 
 
+static bool skip_name(u8 *dns, size_t len, size_t *offset) {
+	/* skip labels */
+	while (dns[*offset] > 0 && (*offset) < len-4) {
+		(*offset) += dns[*offset] + 1;
+	}
+	if (*offset >= len-4) {
+		NFDEBUG("Tried to skip past packet length! offset: %d, len: %d\n",
+		        *offset, len);
+		return false;
+	}
+	(*offset) += 4; /* skip qtype and qclass */
+	return true;
+}
+
+static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
+	u16 rdlength;
+	if (skip_name(dns, len, offset) && \
+	    ((*offset) + 6) <= len ){
+		rdlength = dns[(*offset) + 4] << 8 | dns[(*offset) + 5];
+		if ((*offset) + 6 + rdlength < len) {
+			(*offset) += 6 + rdlength;
+			return true;
+		}
+	}
+	NFDEBUG("Skipping RR failed. offset: %d, len: %d\n", *offset, len);
+	return false;
+}
+
+
+
 #ifdef HAVE_XT_MATCH_PARAM
 static bool dns_mt(const struct sk_buff *skb, const struct xt_match_param *par)
 #else
@@ -45,7 +76,10 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 	u8 *dns;
 	size_t len, offset;
-	bool is_match;
+	bool is_match, invert;
+	u16 counts[4]; /* qdcount, ancount, nscount, arcount */
+	u16 udpsize;
+	int i;
 
 	/* skip fragments */
 	if (par->fragoff)
@@ -59,31 +93,115 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	if (len < 17)
 		return false;
 
-	/* check if we are dealing with DNS query */
-	/* !response_flag && opcode == query; qdcount>=1 */
-	is_match = ((dns[2] & (NS_QR|NS_OPCODE)) == (NS_QR_QUERY|NS_OPCODE_QUERY))
-		&& (dns[4] == 0x00) && (dns[5] >= 0x01);
-	if (!is_match)
-		goto out;
+	NFDEBUG("ipt_dns[%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
+		len,
+		dns[0], dns[1], dns[2], dns[3], dns[4], dns[5], dns[6], dns[7],
+		dns[8], dns[9], dns[10], dns[11], dns[12], dns[13], dns[14], dns[15], dns[16]);
 
-	/* offset is set to the end of all labels, pointing to the '.' root */
-	offset = 12;
-	while (dns[offset] > 0 && offset < len-4) {
-		offset += dns[offset] + 1;
+	/* check if we are dealing with DNS query */
+	if (info->flags & XT_DNS_QUERY) {
+		invert = ((info->invert_flags & XT_DNS_QUERY) != 0);
+		is_match = ((dns[2] & NS_QR) == NS_QR_QUERY);
+		if (is_match == invert)
+			return false;
 	}
 
-	NFDEBUG("ipt_dns[%d,%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x [...] %02x%02x %02x%02x %02x\n",
-		len, offset,
-		dns[0], dns[1], dns[2], dns[3], dns[4], dns[5], dns[6], dns[7],
-		dns[8], dns[9], dns[10], dns[11],
-		dns[offset], dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4]);
+	/* check if we are dealing with DNS response */
+	if (info->flags & XT_DNS_RESPONSE) {
+		invert = ((info->invert_flags & XT_DNS_RESPONSE) != 0);
+		is_match = ((dns[2] & NS_QR) == NS_QR_RESPONSE);
+		if (is_match == invert)
+			return false;
+	}
 
-	/* match if type=info->type, class IN */
-	is_match = (dns[offset+1] == 0x00) && (dns[offset+2] == info->type)
-		&& (dns[offset+3] == 0x00) && (dns[offset+4] == 0x01);
+	/* fill counts[] with data from dns header */
+	for (i=0; i<4; i++) {
+		counts[i] = ntohs(((u16*)dns)[i+2]);
+	}
 
-out:
-	return (is_match ^ info->invert) ? true : false;
+	/* query type test */
+	if (info->flags & XT_DNS_QTYPE) {
+		invert = ((info->invert_flags & XT_DNS_QTYPE) != 0);
+		is_match = counts[0] > 0; /* qdcount at least 1 */
+
+		if (!is_match)
+			goto qtype_out;
+
+		/* offset is set to the first question section */
+		offset = 12;
+		is_match = skip_name(dns, len, &offset);
+		if (!is_match)
+			goto qtype_out;
+
+	
+	
+		/* match if type=info->type, class IN */
+		is_match = (dns[offset-3] == 0x00) && (dns[offset-2] == info->qtype)
+			&& (dns[offset-1] == 0x00) && (dns[offset] == 0x01);
+	
+	qtype_out:
+		if (is_match == invert)
+			return false;
+	}
+
+	/* check for EDNS0 */
+	if (info->flags & XT_DNS_EDNS0) {
+		invert = ((info->invert_flags & XT_DNS_EDNS0) != 0);
+		is_match = counts[3] > 0; /* arcount at least 1 */
+		
+		offset = 12;
+		/* skip query sections */
+		for (i=0; i<counts[0]; i++) {
+			is_match &= skip_name(dns, len, &offset);
+			if (!is_match)
+				break;
+		}
+		if (!is_match)
+			goto edns0_out;
+
+		/* skip answer and authority sections */
+		for (i=0; i<(counts[1]+counts[2]); i++) {
+			is_match &= skip_rr(dns, len, &offset);
+			if (!is_match)
+				break;
+		}
+		if (!is_match)
+			goto edns0_out;
+
+		/* try to find EDNS0 pseudo-RR */
+		for (i=0; i<counts[3]; i++) {
+			if (dns[offset] == 0 && dns[offset+1] == 0 && dns[offset+2] == 41)
+				break;
+			is_match &= skip_rr(dns, len, &offset);
+			if (!is_match)
+				break;
+		}
+		if (!is_match || i == counts[3]) {
+			is_match = false;
+			goto edns0_out;
+		}
+		/* EDNS0 found */
+		if (info->flags & XT_DNS_BUFSIZE) {
+			/* TODO: XT_DNS_BUFSIZE inversion not implemented */
+			udpsize = dns[offset+3] << 8 | dns[offset+4];
+			if (udpsize < info->bufsize[0] || udpsize > info->bufsize[1]) {
+				is_match = false;
+				goto edns0_out;
+			}
+		}
+		NFDEBUG("ipt_dns_edns0[%d,%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x\n",
+			len, offset,
+		        dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4], dns[offset+5],
+		        dns[offset+6], dns[offset+7], dns[offset+8], dns[offset+9], dns[offset+10],
+		        dns[offset+11], dns[offset+12]);
+	edns0_out:
+		if (is_match == invert)
+			return false;
+		
+	}
+
+	/* Nothing stopped us so far, let's accept the packet */
+	return true;
 }
 
 #ifdef HAVE_XT_MATCH_PARAM
@@ -150,8 +268,8 @@ static void __exit dns_exit(void)
 
 module_init(dns_init);
 module_exit(dns_exit);
-MODULE_AUTHOR("Bartlomiej Korupczynski <bartek@klolik.org>");
-MODULE_DESCRIPTION("Xtables: DNS query match");
+MODULE_AUTHOR("Ondrej Caletka <ondrej@caletka.cz>");
+MODULE_DESCRIPTION("Xtables: DNS matcher");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_dns");
 MODULE_ALIAS("ip6t_dns");

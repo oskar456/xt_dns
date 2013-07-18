@@ -1,6 +1,7 @@
 /*
  *	libxt_dns
- *	Copyright (c) Bartlomiej Korupczynski, 2011
+ *      Copyright (c) Ondrej Caletka, 2013
+ *	based on libxt_dns (c) Bartlomiej Korupczynski, 2011
  *
  *	This is userspace part of module used to match DNS MX queries
  * 

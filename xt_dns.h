@@ -13,12 +13,19 @@
 
 //#define NS_T_MX			0x0f
 
-#define DNS_F_INVERT		0x01
-
+enum {
+	XT_DNS_QUERY	= 1 << 0,
+	XT_DNS_RESPONSE	= 1 << 1,
+	XT_DNS_QTYPE	= 1 << 2,
+	XT_DNS_EDNS0	= 1 << 3,
+	XT_DNS_BUFSIZE	= 1 << 4,
+};
 
 struct xt_dns_info {
-	u_int8_t invert;
-	u_int8_t type;	/* record type */
+	u_int8_t flags;
+	u_int8_t invert_flags;
+	u_int8_t qtype;	/* record type */
+	u_int16_t bufsize[2];	/* edns0 bufsize [min:max] */
 };
 
 
