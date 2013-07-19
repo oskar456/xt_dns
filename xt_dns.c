@@ -42,11 +42,11 @@ static bool skip_name(u8 *dns, size_t len, size_t *offset) {
 		(*offset) += dns[*offset] + 1;
 	}
 	if (*offset >= len-4) {
-		NFDEBUG("Tried to skip past packet length! offset: %d, len: %d\n",
+		NFDEBUG("Tried to skip past packet length! offset: %zu, len: %zu\n",
 		        *offset, len);
 		return false;
 	}
-	(*offset) += 4; /* skip qtype and qclass */
+	(*offset) += 5; /* skip qtype and qclass */
 	return true;
 }
 
@@ -60,7 +60,7 @@ static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
 			return true;
 		}
 	}
-	NFDEBUG("Skipping RR failed. offset: %d, len: %d\n", *offset, len);
+	NFDEBUG("Skipping RR failed. offset: %zu, len: %zu\n", *offset, len);
 	return false;
 }
 
@@ -93,7 +93,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	if (len < 17)
 		return false;
 
-	NFDEBUG("ipt_dns[%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
+	NFDEBUG("ipt_dns[%zu]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
 		len,
 		dns[0], dns[1], dns[2], dns[3], dns[4], dns[5], dns[6], dns[7],
 		dns[8], dns[9], dns[10], dns[11], dns[12], dns[13], dns[14], dns[15], dns[16]);
@@ -136,8 +136,8 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	
 	
 		/* match if type=info->type, class IN */
-		is_match = (dns[offset-3] == 0x00) && (dns[offset-2] == info->qtype)
-			&& (dns[offset-1] == 0x00) && (dns[offset] == 0x01);
+		is_match = (dns[offset-4] == 0x00) && (dns[offset-3] == info->qtype)
+			&& (dns[offset-2] == 0x00) && (dns[offset-2] == 0x01);
 	
 	qtype_out:
 		if (is_match == invert)
@@ -158,6 +158,10 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		}
 		if (!is_match)
 			goto edns0_out;
+		NFDEBUG("after_query[%zu,%zu]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
+		len, offset,
+		dns[offset], dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4], dns[offset+5], dns[offset+6], dns[offset+7],
+		dns[offset+8], dns[offset+9], dns[offset+10], dns[offset+11], dns[offset+12], dns[offset+13], dns[offset+14], dns[offset+15], dns[offset+16]);
 
 		/* skip answer and authority sections */
 		for (i=0; i<(counts[1]+counts[2]); i++) {
@@ -189,7 +193,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 				goto edns0_out;
 			}
 		}
-		NFDEBUG("ipt_dns_edns0[%d,%d]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x\n",
+		NFDEBUG("ipt_dns_edns0[%zd,%zd]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x\n",
 			len, offset,
 		        dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4], dns[offset+5],
 		        dns[offset+6], dns[offset+7], dns[offset+8], dns[offset+9], dns[offset+10],
