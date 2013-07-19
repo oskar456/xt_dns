@@ -23,38 +23,54 @@
 #include "xt_dns.h"
 #include "config.h"
 
-
 #ifdef CONFIG_NETFILTER_DEBUG
-#define NFDEBUG(format, args...)  printk(format , ## args)
 #warning debugging on
+#define NFDEBUG(format, args...)  printk(KBUILD_MODNAME ": " format , ## args)
+void debug_dump_buf(u8 *dns, size_t len, size_t offset, char *title) {
+	int i;
+	printk("%s[%zu]: ", title, offset);
+	for (i=offset; i<len && i<(offset+24); i++)
+		printk("%02x ", dns[i]);
+	printk("\n");
+}	
 #else
 #define NFDEBUG(format, args...)
+#define debug_dump_buf(dns, len, offset, title)
 #endif
 
 
 // uncomment following line if you get compilation error
 //#define HAVE_XT_MATCH_PARAM
 
+#define MAX_MTU 2000
 
 static bool skip_name(u8 *dns, size_t len, size_t *offset) {
 	/* skip labels */
+	debug_dump_buf(dns, len, *offset, "skip_name");
 	while (dns[*offset] > 0 && (*offset) < len-4) {
-		(*offset) += dns[*offset] + 1;
+		if (dns[*offset] <= 63)
+			(*offset) += dns[*offset] + 1;
+		else	{
+			(*offset) += 1; /* Compressed label */
+			break;
+		}
 	}
 	if (*offset >= len-4) {
-		pr_warn("Tried to skip past packet length! offset: %zu, len: %zu\n",
+		pr_warn(KBUILD_MODNAME ": Tried to skip past packet length! offset: %zu, len: %zu\n",
 		        *offset, len);
 		return false;
 	}
+	/* offset is now pointing on the last octet of name */
 	(*offset) += 5; /* skip qtype and qclass */
 	return true;
 }
 
 static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
 	u16 rdlength;
-	if (skip_name(dns, len, offset) && \
-	    ((*offset) + 6) <= len ){
+	if (skip_name(dns, len, offset) && ((*offset) + 6) <= len ){
 		rdlength = dns[(*offset) + 4] << 8 | dns[(*offset) + 5];
+		debug_dump_buf(dns, len, *offset, "skip_rr");
+		NFDEBUG("rdlength: %d\n", rdlength);
 		if ((*offset) + 6 + rdlength < len) {
 			(*offset) += 6 + rdlength;
 			return true;
@@ -64,7 +80,7 @@ static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
 	return false;
 }
 
-
+static u8 pktbuf[MAX_MTU]; /* buffer for whole packet in case skb is fragmented */
 
 #ifdef HAVE_XT_MATCH_PARAM
 static bool dns_mt(const struct sk_buff *skb, const struct xt_match_param *par)
@@ -85,18 +101,28 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	if (par->fragoff)
 		return false;
 
+	NFDEBUG("skb->len: %d, skb->data_len: %d, par->thoff: %d\n", skb->len, skb->data_len, par->thoff);
 	/* find UDP payload */
-	dns = skb->data + (par->thoff + sizeof(struct udphdr));
-	len = skb_headlen(skb) - (par->thoff + sizeof(struct udphdr));
+	offset = par->thoff + sizeof(struct udphdr);
+	len = skb->len - offset;
+	if (len > sizeof(pktbuf)) {
+		pr_warn(KBUILD_MODNAME": Packet too big. Increase MAX_MTU (size %d)\n", skb->len);
+		return false;
+	}
+	dns = skb_header_pointer(skb, offset, len, pktbuf);
+	if (dns == NULL) {
+		pr_warn(KBUILD_MODNAME": skb_header_pointer failed!\n");
+		return false;
+	}
+	/*dns = skb->data + (par->thoff + sizeof(struct udphdr));
+	len = skb_headlen(skb) - (par->thoff + sizeof(struct udphdr));*/
 
 	/* minimum DNS query payload is 17 bytes (for "." root zone) */
 	if (len < 17)
 		return false;
 
-	NFDEBUG("ipt_dns[%zu]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
-		len,
-		dns[0], dns[1], dns[2], dns[3], dns[4], dns[5], dns[6], dns[7],
-		dns[8], dns[9], dns[10], dns[11], dns[12], dns[13], dns[14], dns[15], dns[16]);
+	NFDEBUG("skb->len: %d, skb->data_len: %d, len: %zu\n", skb->len, skb->data_len, len);
+	debug_dump_buf(dns, len, 0, "ipt_dns");
 
 	/* check if we are dealing with DNS query */
 	if (info->flags & XT_DNS_QUERY) {
@@ -158,10 +184,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		}
 		if (!is_match)
 			goto edns0_out;
-		NFDEBUG("after_query[%zu,%zu]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x\n",
-		len, offset,
-		dns[offset], dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4], dns[offset+5], dns[offset+6], dns[offset+7],
-		dns[offset+8], dns[offset+9], dns[offset+10], dns[offset+11], dns[offset+12], dns[offset+13], dns[offset+14], dns[offset+15], dns[offset+16]);
+		debug_dump_buf(dns, len, offset, "after_query");
 
 		/* skip answer and authority sections */
 		for (i=0; i<(counts[1]+counts[2]); i++) {
@@ -193,11 +216,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 				goto edns0_out;
 			}
 		}
-		NFDEBUG("ipt_dns_edns0[%zd,%zd]: %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x %02x%02x\n",
-			len, offset,
-		        dns[offset+1], dns[offset+2], dns[offset+3], dns[offset+4], dns[offset+5],
-		        dns[offset+6], dns[offset+7], dns[offset+8], dns[offset+9], dns[offset+10],
-		        dns[offset+11], dns[offset+12]);
+		debug_dump_buf(dns, len, offset, "ipt_dns_edns0");
 	edns0_out:
 		if (is_match == invert)
 			return false;
