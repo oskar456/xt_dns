@@ -130,11 +130,11 @@ static void dns_help(void)
 {
 	printf(
 "dns match options:\n"
-"[!] --dns-query	match DNS query\n"
-"[!] --dns-response	match DNS response\n"
+"[!] --dns-query        match DNS query\n"
+"[!] --dns-response     match DNS response\n"
 "[!] --query-type {A|NS|CNAME|SOA|PTR|MX|TXT|AAAA|SRV|A6|ANY|0-255}\n"
-"			match specific query type\n"
-"[!] --edns0		match packets with EDNS0 field\n"
+"                       match specific query type\n"
+"[!] --edns0            match packets with EDNS0 field\n"
 "    --bufsize value[:value] match EDNS0 buffer size\n");
 }
 
