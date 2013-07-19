@@ -68,7 +68,7 @@ static void parse_uint16_range(const char *rangestring, uint16_t *bufsize)
 	char *buffer;
 	char *cp;
 
-	buffer = strdup(portstring);
+	buffer = strdup(rangestring);
 	if ((cp = strchr(buffer, ':')) == NULL)
 		bufsize[0] = bufsize[1] = parse_u16(buffer);
 	else {
@@ -143,51 +143,160 @@ static int dns_parse(int c, char **argv, int invert, unsigned int *flags,
 {
 	struct xt_dns_info *info = (void *) (*match)->data;
 	u_int8_t type;
+	
+	switch (c) {
+	case '1': /* query */
+		if (*flags & XT_DNS_QUERY)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Only use \"--%s\" once!", dns_opts[0].name);
+		if (*flags & XT_DNS_RESPONSE)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "You cannot mix \"--%s\" and \"--%s\"!",
+			         dns_opts[0].name, dns_opts[1].name);
+		*flags |= XT_DNS_QUERY;
+		info->flags |= XT_DNS_QUERY;
+		if (invert)
+			info->invert_flags |= XT_DNS_QTYPE;
+		return true;
 
-	if (c != '1')
-		return false;
+	case '2': /* response */
+		if (*flags & XT_DNS_RESPONSE)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Only use \"--%s\" once!", dns_opts[1].name);
+		if (*flags & XT_DNS_QUERY)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "You cannot mix \"--%s\" and \"--%s\"!",
+			         dns_opts[1].name, dns_opts[0].name);
+		*flags |= XT_DNS_RESPONSE;
+		info->flags |= XT_DNS_RESPONSE;
+		if (invert)
+			info->invert_flags |= XT_DNS_RESPONSE;
+		return true;
 
-	if ((type = get_type(optarg)) == 0)
-		xtables_error(PARAMETER_PROBLEM, "Unknown DNS query type");
-	info->invert = invert;
-	info->type = type;
-	return true;
+	case '3': /* query type */
+		if (*flags & XT_DNS_QTYPE)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Only use \"--%s\" once!", dns_opts[2].name);
+		if ((type = get_type(optarg)) == 0)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Unknown DNS query type");
+		*flags |= XT_DNS_QTYPE;
+		info->flags |= XT_DNS_QTYPE;
+		info->qtype = type;
+		if (invert)
+			info->invert_flags |= XT_DNS_QTYPE;
+		return true;
+		break;
+	case '4': /* edns0 */
+		if (*flags & XT_DNS_EDNS0)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Only use \"--%s\" once!", dns_opts[3].name);
+		*flags |= XT_DNS_EDNS0;
+		info->flags |= XT_DNS_EDNS0;
+		if (invert)
+			info->invert_flags |= XT_DNS_EDNS0;
+		return true;
+	case '5': /* bufsize */
+		if (*flags & XT_DNS_BUFSIZE)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "Only use \"--%s\" once!", dns_opts[4].name);
+		if (invert)
+			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
+			         "%s cannot be inverted!", dns_opts[4].name);
+		*flags |= XT_DNS_BUFSIZE;
+		info->flags |= XT_DNS_EDNS0 | XT_DNS_BUFSIZE; /* bufsize implies edns0 */
+		parse_uint16_range(optarg, info->bufsize);
+		return true;
+	}
+	return false;
 }
 
 static void dns_print(const void *ip, const struct xt_entry_match *match, int numeric)
 {
 	struct xt_dns_info *info = (void *) match->data;
-	const char *name = find_type_name(info->type);
-
-	if (info->invert)
-		printf("! ");
-
-	if (name)
-		printf("%s:%s ", A_TYPE, name);
-	else
-		printf("%s:%d ", A_TYPE, info->type);
+	const char *name;
+	
+	
+	printf(" dns ");
+	if (info->flags & XT_DNS_QUERY) {
+		if (info->invert_flags & XT_DNS_QUERY)
+			printf("!");
+		printf("query ");
+	}
+	if (info->flags & XT_DNS_RESPONSE) {
+		if (info->invert_flags & XT_DNS_RESPONSE)
+			printf("!");
+		printf("response ");
+	}
+	if (info->flags & XT_DNS_QTYPE) {
+		if (info->invert_flags & XT_DNS_QTYPE)
+			printf("!");
+		name = find_type_name(info->qtype);
+		if (name)
+			printf("qtype %s ", name);
+		else
+			printf("qtype %d ", info->qtype);
+	}
+	if (info->flags & XT_DNS_EDNS0) {
+		if (info->invert_flags & XT_DNS_EDNS0)
+			printf("!");
+		printf("edns0 ");
+		if (info->flags & XT_DNS_BUFSIZE) {
+			if (info->bufsize[0] == info->bufsize[1])
+				printf("bufsize %d ", info->bufsize[0]);
+			else
+				printf("bufsize %d:%d ",
+				       info->bufsize[0], info->bufsize[1]);
+		}
+	}
 }
 
 static void dns_save(const void *ip, const struct xt_entry_match *match)
 {
 	struct xt_dns_info *info = (void *) match->data;
-	const char *name = find_type_name(info->type);
+	const char *name;
+	
+	if (info->flags & XT_DNS_QUERY) {
+		if (info->invert_flags & XT_DNS_QUERY)
+			printf("! ");
+		printf("--%s ", dns_opts[0].name);
+	}
+	if (info->flags & XT_DNS_RESPONSE) {
+		if (info->invert_flags & XT_DNS_RESPONSE)
+			printf("! ");
+		printf("--%s ", dns_opts[1].name);
+	}
+	if (info->flags & XT_DNS_QTYPE) {
+		if (info->invert_flags & XT_DNS_QTYPE)
+			printf("! ");
+		name = find_type_name(info->qtype);
+		if (name)
+			printf("--%s %s ", dns_opts[2].name, name);
+		else
+			printf("--%s %d ", dns_opts[2].name, info->qtype);
+	}
+	if (info->flags & XT_DNS_EDNS0) {
+		if (info->invert_flags & XT_DNS_EDNS0)
+			printf("! ");
+		printf("--%s ", dns_opts[3].name);
+		if (info->flags & XT_DNS_BUFSIZE) {
+			if (info->bufsize[0] == info->bufsize[1])
+				printf("--%s %d ", dns_opts[4].name, info->bufsize[0]);
+			else
+				printf("--%s %d:%d ", dns_opts[4].name,
+				       info->bufsize[0], info->bufsize[1]);
+		}
+	}
 
-	if (info->invert)
-		printf("! ");
-
-	if (name)
-		printf("--%s %s ", A_TYPE, name);
-	else
-		printf("--%s %d ", A_TYPE, info->type);
 }
 
 static struct xtables_match dns_match = {
-	.family		= AF_INET,
-	.name		= "dns",
 	.version	= XTABLES_VERSION,
+	.name		= "dns",
+	.revision	= 1,
+	.family		= AF_INET,
 	.size		= XT_ALIGN(sizeof(struct xt_dns_info)),
-	.userspacesize	= 0,
+	.userspacesize	= XT_ALIGN(sizeof(struct xt_dns_info)),
 	.help		= dns_help,
 	.parse		= dns_parse,
 	.print		= dns_print,
@@ -196,11 +305,12 @@ static struct xtables_match dns_match = {
 };
 
 static struct xtables_match dns_match6 = {
-	.family		= AF_INET6,
-	.name		= "dns",
 	.version	= XTABLES_VERSION,
+	.name		= "dns",
+	.revision	= 1,
+	.family		= AF_INET6,
 	.size		= XT_ALIGN(sizeof(struct xt_dns_info)),
-	.userspacesize	= 0,
+	.userspacesize	= XT_ALIGN(sizeof(struct xt_dns_info)),
 	.help		= dns_help,
 	.parse		= dns_parse,
 	.print		= dns_print,
