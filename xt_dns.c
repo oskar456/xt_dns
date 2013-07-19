@@ -236,7 +236,7 @@ static int dns_mt6_check(const struct xt_mtchk_param *par)
 static struct xt_match dns_reg[] __read_mostly = {
 	{
 		.name		= "dns",
-		.revision	= 0,
+		.revision	= 1,
 		.family		= NFPROTO_IPV4,
 		.checkentry	= dns_mt_check,
 		.match		= dns_mt,
@@ -245,7 +245,7 @@ static struct xt_match dns_reg[] __read_mostly = {
 	},
 	{
 		.name		= "dns",
-		.revision	= 0,
+		.revision	= 1,
 		.family		= NFPROTO_IPV6,
 		.checkentry	= dns_mt6_check,
 		.match		= dns_mt,
