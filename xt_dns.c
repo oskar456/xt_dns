@@ -42,7 +42,7 @@ static bool skip_name(u8 *dns, size_t len, size_t *offset) {
 		(*offset) += dns[*offset] + 1;
 	}
 	if (*offset >= len-4) {
-		NFDEBUG("Tried to skip past packet length! offset: %zu, len: %zu\n",
+		pr_warn("Tried to skip past packet length! offset: %zu, len: %zu\n",
 		        *offset, len);
 		return false;
 	}
@@ -60,7 +60,7 @@ static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
 			return true;
 		}
 	}
-	NFDEBUG("Skipping RR failed. offset: %zu, len: %zu\n", *offset, len);
+	pr_warn("Skipping RR failed. offset: %zu, len: %zu\n", *offset, len);
 	return false;
 }
 
