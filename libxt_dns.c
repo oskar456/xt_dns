@@ -258,32 +258,32 @@ static void dns_save(const void *ip, const struct xt_entry_match *match)
 	
 	if (info->flags & XT_DNS_QUERY) {
 		if (info->invert_flags & XT_DNS_QUERY)
-			printf("! ");
-		printf("--%s ", dns_opts[0].name);
+			printf(" !");
+		printf(" --%s", dns_opts[0].name);
 	}
 	if (info->flags & XT_DNS_RESPONSE) {
 		if (info->invert_flags & XT_DNS_RESPONSE)
-			printf("! ");
-		printf("--%s ", dns_opts[1].name);
+			printf(" !");
+		printf(" --%s", dns_opts[1].name);
 	}
 	if (info->flags & XT_DNS_QTYPE) {
 		if (info->invert_flags & XT_DNS_QTYPE)
-			printf("! ");
+			printf(" !");
 		name = find_type_name(info->qtype);
 		if (name)
-			printf("--%s %s ", dns_opts[2].name, name);
+			printf(" --%s %s", dns_opts[2].name, name);
 		else
-			printf("--%s %d ", dns_opts[2].name, info->qtype);
+			printf(" --%s %d", dns_opts[2].name, info->qtype);
 	}
 	if (info->flags & XT_DNS_EDNS0) {
 		if (info->invert_flags & XT_DNS_EDNS0)
-			printf("! ");
-		printf("--%s ", dns_opts[3].name);
+			printf(" !");
+		printf(" --%s", dns_opts[3].name);
 		if (info->flags & XT_DNS_BUFSIZE) {
 			if (info->bufsize[0] == info->bufsize[1])
-				printf("--%s %d ", dns_opts[4].name, info->bufsize[0]);
+				printf(" --%s %d", dns_opts[4].name, info->bufsize[0]);
 			else
-				printf("--%s %d:%d ", dns_opts[4].name,
+				printf(" --%s %d:%d", dns_opts[4].name,
 				       info->bufsize[0], info->bufsize[1]);
 		}
 	}
