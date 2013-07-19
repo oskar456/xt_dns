@@ -1,13 +1,18 @@
-Netfilter extension to match DNS query type
-===========================================
+Netfilter extension to match various DNS atributes
+==================================================
 
-Ondrej Caletka, 2012
+by Ondřej Caletka, 2013
 
-This is a fork of xt_dns netfilter extension,
-originally written by Bartłomiej Korupczyński
+This work is based on the original xt_dns netfilter
+extension, written by Bartłomiej Korupczyński
 http://software.klolik.org/xt_dns/
 
 
-This fork addes availability to match queries,
-which uses EDNS0 extension (RFC 2671). The matching
-algorithm is changed to one fully RFC 1035 compliant.
+This fork addes availability to match queries, or
+responses, to match query type (eg. ANY) in queries
+or even in responses and also to match packet with
+EDNS0 pseudo-RR and with specific bufsize range.
+The matching algorithm is fully RFC 1035 compliant.
+
+Only non-fragmented UDP packets are supported, both
+IPv4 and IPv6.
