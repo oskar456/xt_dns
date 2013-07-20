@@ -20,6 +20,20 @@
 #include "xt_dns.h"
 #include "config.h"
 
+//For old version of iptables
+#ifndef XT_GETOPT_TABLEEND
+#define XT_GETOPT_TABLEEND {.name = NULL, .has_arg = false}
+#endif
+#if XTABLES_VERSION_CODE < 6
+	/* prior to iptables-1.4.11, the space was printed after option */
+#define S1 ""
+#define S2 " "
+#else
+	/* from iptables-1.4.11 on, the space is printed before option */
+#define S1 " "
+#define S2 ""
+#endif
+
 // uncomment this for older version of iptables
 //#define xtables_error exit_error
 
@@ -217,35 +231,40 @@ static void dns_print(const void *ip, const struct xt_entry_match *match, int nu
 	const char *name;
 	
 	
-	printf(" dns ");
+	printf(S1"dns"S2);
 	if (info->flags & XT_DNS_QUERY) {
+		printf("%s",S1);
 		if (info->invert_flags & XT_DNS_QUERY)
 			printf("!");
-		printf("query ");
+		printf("query"S2);
 	}
 	if (info->flags & XT_DNS_RESPONSE) {
+		printf("%s",S1);
 		if (info->invert_flags & XT_DNS_RESPONSE)
 			printf("!");
-		printf("response ");
+		printf("response"S2);
 	}
 	if (info->flags & XT_DNS_QTYPE) {
+		printf("%s",S1);
 		if (info->invert_flags & XT_DNS_QTYPE)
 			printf("!");
 		name = find_type_name(info->qtype);
 		if (name)
-			printf("qtype %s ", name);
+			printf("qtype %s"S2, name);
 		else
-			printf("qtype %d ", info->qtype);
+			printf("qtype %d"S2, info->qtype);
 	}
 	if (info->flags & XT_DNS_EDNS0) {
+		printf("%s",S1);
 		if (info->invert_flags & XT_DNS_EDNS0)
 			printf("!");
-		printf("edns0 ");
+		printf("edns0"S2);
 		if (info->flags & XT_DNS_BUFSIZE) {
+			printf("%s",S1);
 			if (info->bufsize[0] == info->bufsize[1])
-				printf("bufsize %d ", info->bufsize[0]);
+				printf("bufsize %d"S2, info->bufsize[0]);
 			else
-				printf("bufsize %d:%d ",
+				printf("bufsize %d:%d"S2,
 				       info->bufsize[0], info->bufsize[1]);
 		}
 	}
@@ -258,36 +277,35 @@ static void dns_save(const void *ip, const struct xt_entry_match *match)
 	
 	if (info->flags & XT_DNS_QUERY) {
 		if (info->invert_flags & XT_DNS_QUERY)
-			printf(" !");
-		printf(" --%s", dns_opts[0].name);
+			printf(S1"!"S2);
+		printf(S1"--%s"S2, dns_opts[0].name);
 	}
 	if (info->flags & XT_DNS_RESPONSE) {
 		if (info->invert_flags & XT_DNS_RESPONSE)
-			printf(" !");
-		printf(" --%s", dns_opts[1].name);
+			printf(S1"!"S2);
+		printf(S1"--%s"S2, dns_opts[1].name);
 	}
 	if (info->flags & XT_DNS_QTYPE) {
 		if (info->invert_flags & XT_DNS_QTYPE)
-			printf(" !");
+			printf(S1"!"S2);
 		name = find_type_name(info->qtype);
 		if (name)
-			printf(" --%s %s", dns_opts[2].name, name);
+			printf(S1"--%s %s"S1, dns_opts[2].name, name);
 		else
-			printf(" --%s %d", dns_opts[2].name, info->qtype);
+			printf(S1"--%s %d"S2, dns_opts[2].name, info->qtype);
 	}
 	if (info->flags & XT_DNS_EDNS0) {
 		if (info->invert_flags & XT_DNS_EDNS0)
-			printf(" !");
-		printf(" --%s", dns_opts[3].name);
+			printf(S1"!"S2);
+		printf(S1"--%s"S2, dns_opts[3].name);
 		if (info->flags & XT_DNS_BUFSIZE) {
 			if (info->bufsize[0] == info->bufsize[1])
-				printf(" --%s %d", dns_opts[4].name, info->bufsize[0]);
+				printf(S1"--%s %d"S2, dns_opts[4].name, info->bufsize[0]);
 			else
-				printf(" --%s %d:%d", dns_opts[4].name,
+				printf(S1"--%s %d:%d"S2, dns_opts[4].name,
 				       info->bufsize[0], info->bufsize[1]);
 		}
 	}
-
 }
 
 static struct xtables_match dns_match = {
