@@ -38,11 +38,8 @@ void debug_dump_buf(u8 *dns, size_t len, size_t offset, char *title) {
 #define debug_dump_buf(dns, len, offset, title)
 #endif
 
-
-// uncomment following line if you get compilation error
-//#define HAVE_XT_MATCH_PARAM
-
 #define MAX_MTU 2000
+static u8 pktbuf[MAX_MTU]; /* buffer for whole packet in case skb is fragmented */
 
 static bool skip_name(u8 *dns, size_t len, size_t *offset) {
 	/* skip labels */
@@ -80,8 +77,6 @@ static bool skip_rr(u8 *dns, size_t len, size_t *offset) {
 	return false;
 }
 
-static u8 pktbuf[MAX_MTU]; /* buffer for whole packet in case skb is fragmented */
-
 #ifdef HAVE_XT_MATCH_PARAM
 static bool dns_mt(const struct sk_buff *skb, const struct xt_match_param *par)
 #else
@@ -114,8 +109,6 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		pr_warn(KBUILD_MODNAME": skb_header_pointer failed!\n");
 		return false;
 	}
-	/*dns = skb->data + (par->thoff + sizeof(struct udphdr));
-	len = skb_headlen(skb) - (par->thoff + sizeof(struct udphdr));*/
 
 	/* minimum DNS query payload is 17 bytes (for "." root zone) */
 	if (len < 17)
@@ -159,8 +152,6 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		if (!is_match)
 			goto qtype_out;
 
-	
-	
 		/* match if type=info->type, class IN */
 		is_match = (dns[offset-4] == 0x00) && (dns[offset-3] == info->qtype)
 			&& (dns[offset-2] == 0x00) && (dns[offset-2] == 0x01);
@@ -184,7 +175,6 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		}
 		if (!is_match)
 			goto edns0_out;
-		debug_dump_buf(dns, len, offset, "after_query");
 
 		/* skip answer and authority sections */
 		for (i=0; i<(counts[1]+counts[2]); i++) {
@@ -203,7 +193,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 			if (!is_match)
 				break;
 		}
-		if (!is_match || i == counts[3]) {
+		if (!is_match || (i == counts[3])) {
 			is_match = false;
 			goto edns0_out;
 		}

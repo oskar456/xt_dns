@@ -200,7 +200,7 @@ static int dns_parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			info->invert_flags |= XT_DNS_QTYPE;
 		return true;
-		break;
+
 	case '4': /* edns0 */
 		if (*flags & XT_DNS_EDNS0)
 			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
@@ -210,6 +210,7 @@ static int dns_parse(int c, char **argv, int invert, unsigned int *flags,
 		if (invert)
 			info->invert_flags |= XT_DNS_EDNS0;
 		return true;
+
 	case '5': /* bufsize */
 		if (*flags & XT_DNS_BUFSIZE)
 			xtables_error(PARAMETER_PROBLEM, "xt_dns: "
@@ -229,7 +230,6 @@ static void dns_print(const void *ip, const struct xt_entry_match *match, int nu
 {
 	struct xt_dns_info *info = (void *) match->data;
 	const char *name;
-	
 	
 	printf(S1"dns"S2);
 	if (info->flags & XT_DNS_QUERY) {
@@ -341,4 +341,3 @@ void _init(void)
 	xtables_register_match(&dns_match);
 	xtables_register_match(&dns_match6);
 }
-

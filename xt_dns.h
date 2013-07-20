@@ -28,7 +28,4 @@ struct xt_dns_info {
 	u_int16_t bufsize[2];	/* edns0 bufsize [min:max] */
 };
 
-
-
 #endif
-
