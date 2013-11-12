@@ -140,6 +140,7 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 	/* query type test */
 	if (info->flags & XT_DNS_QTYPE) {
+		NFDEBUG("Entering qtype match\n");
 		invert = ((info->invert_flags & XT_DNS_QTYPE) != 0);
 		is_match = counts[0] > 0; /* qdcount at least 1 */
 
@@ -152,9 +153,10 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		if (!is_match)
 			goto qtype_out;
 
+		NFDEBUG("Matching qtype: %x %x %x %x\n", dns[offset-4], dns[offset-3], dns[offset-2], dns[offset-1]);
 		/* match if type=info->type, class IN */
 		is_match = (dns[offset-4] == 0x00) && (dns[offset-3] == info->qtype)
-			&& (dns[offset-2] == 0x00) && (dns[offset-2] == 0x01);
+			&& (dns[offset-2] == 0x00) && (dns[offset-1] == 0x01);
 	
 	qtype_out:
 		if (is_match == invert)
