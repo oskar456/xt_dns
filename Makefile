@@ -16,7 +16,7 @@ DISTFILES = *.[ch] Makefile ChangeLog
 KVERSION = $(shell uname -r)
 KDIR = /lib/modules/$(KVERSION)/build
 MDIR = /lib/modules/$(KVERSION)/local/
-XDIR = /lib/xtables/ /lib/64xtables/
+XDIR = /lib/xtables/ /lib64/xtables/
 IPTABLES = iptables
 IP6TABLES = ip6tables
 
