@@ -4,6 +4,7 @@ Module.symvers
 modules.order
 *.o
 *.ko
+*.ko.unsigned
 *.mod.c
 *.so
 config.h
