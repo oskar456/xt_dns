@@ -10,7 +10,7 @@
 #
 
 NAME = xt_dns
-VERSION = 1.0
+VERSION = 1.3
 DISTFILES = *.[ch] Makefile ChangeLog
 
 KVERSION = $(shell uname -r)
