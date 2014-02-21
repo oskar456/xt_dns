@@ -290,7 +290,7 @@ static void dns_save(const void *ip, const struct xt_entry_match *match)
 			printf(S1"!"S2);
 		name = find_type_name(info->qtype);
 		if (name)
-			printf(S1"--%s %s"S1, dns_opts[2].name, name);
+			printf(S1"--%s %s"S2, dns_opts[2].name, name);
 		else
 			printf(S1"--%s %d"S2, dns_opts[2].name, info->qtype);
 	}
