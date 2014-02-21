@@ -221,31 +221,63 @@ static bool dns_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 #ifdef HAVE_XT_MATCH_PARAM
 static bool dns_mt_check(const struct xt_mtchk_param *par)
-#else
-static int dns_mt_check(const struct xt_mtchk_param *par)
-#endif
 {
 	const struct ipt_ip *ip = par->entryinfo;
 //	const struct xt_dns_info *info = par->matchinfo;
 
 	/* we can deal with UDP only */
-	if (ip->proto != IPPROTO_UDP)
+	if (ip->proto != IPPROTO_UDP) {
+		printk("xt_dns: cannot work with other protocol than UDP\n");
+		return false;
+	}
+
+	return true;
+}
+#else
+static int dns_mt_check(const struct xt_mtchk_param *par)
+{
+	const struct ipt_ip *ip = par->entryinfo;
+//	const struct xt_dns_info *info = par->matchinfo;
+
+	/* we can deal with UDP only */
+	if (ip->proto != IPPROTO_UDP) {
+		printk("xt_dns: cannot work with other protocol than UDP\n");
 		return -EPROTOTYPE;
+	}
 
 	return 0;
 }
+#endif
 
+#ifdef HAVE_XT_MATCH_PARAM
+static bool dns_mt6_check(const struct xt_mtchk_param *par)
+{
+	const struct ip6t_ip6 *ip = par->entryinfo;
+//	const struct xt_dns_info *info = par->matchinfo;
+
+	/* we can deal with UDP only */
+	if (ip->proto != IPPROTO_UDP) {
+		printk("xt_dns: cannot work with other protocol than UDP\n");
+		return false;
+	}
+
+	return true;
+}
+#else
 static int dns_mt6_check(const struct xt_mtchk_param *par)
 {
 	const struct ip6t_ip6 *ip = par->entryinfo;
 //	const struct xt_dns_info *info = par->matchinfo;
 
 	/* we can deal with UDP only */
-	if (ip->proto != IPPROTO_UDP)
+	if (ip->proto != IPPROTO_UDP) {
+		printk("xt_dns: cannot work with other protocol than UDP\n");
 		return -EPROTOTYPE;
+	}
 
 	return 0;
 }
+#endif
 
 
 static struct xt_match dns_reg[] __read_mostly = {
@@ -277,7 +309,7 @@ static int __init dns_init(void)
 
 static void __exit dns_exit(void)
 {
-//	printk("unregistering %s\n", "xt_dns");
+	printk("unregistering %s\n", "xt_dns");
 	xt_unregister_matches(dns_reg, ARRAY_SIZE(dns_reg));
 }
 
