@@ -16,3 +16,26 @@ The matching algorithm is fully RFC 1035 compliant.
 
 Only non-fragmented UDP packets are supported, both
 IPv4 and IPv6.
+
+Usage
+-----
+
+See `iptables -m dns --help`:
+
+```
+dns match options:
+[!] --dns-query        match DNS query
+[!] --dns-response     match DNS response
+[!] --query-type {A|NS|CNAME|SOA|PTR|MX|TXT|AAAA|SRV|A6|ANY|0-255}
+                       match specific query type
+[!] --edns0            match packets with EDNS0 field
+    --bufsize value[:value] match EDNS0 buffer size
+```
+
+Example usage
+-------------
+
+Classifying ANY-type DNS queries (massively abused for DNS Amplification attacks)
+and applying a very strict request rate limit:
+
+```# iptables -A INPUT -p udp --dport 53 -m dns --dns-query --query-type ANY -m hashlimit --hashlimit-above 10/min --hashlimit-burst 3 --hashlimit-mode srcip --hashlimit-name DNS-ANY -j DROP ```
