@@ -8,13 +8,13 @@
 #
 
 NAME = xt_dns
-VERSION = 1.4
+VERSION = 1.5
 DISTFILES = *.[ch] Makefile ChangeLog
 
 KVERSION = $(shell uname -r)
 KDIR = /lib/modules/$(KVERSION)/build
 MDIR = /lib/modules/$(KVERSION)/local/
-XDIR = /lib/xtables/ /lib64/xtables/
+XDIR = `pkg-config xtables --variable xtlibdir`
 IPTABLES = iptables
 IP6TABLES = ip6tables
 
@@ -50,12 +50,7 @@ module-install: xt_dns.ko
 	sync
 
 userspace-install: libxt_dns.so
-	for xdir in $(XDIR); do \
-		if [ -d $${xdir} ]; then \
-			install *.so $${xdir}; \
-			break; \
-		fi; \
-	done
+	install libxt_dns.so $(XDIR)
 
 clean:
 	rm -f libxt_dns.so config.h
