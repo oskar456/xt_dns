@@ -303,7 +303,7 @@ static struct xt_match dns_reg[] __read_mostly = {
 
 static int __init dns_init(void)
 {
-	printk("registering %s %s: %s, %s\n", "xt_dns", VERSION, __DATE__, __TIME__);
+	printk("registering %s %s\n", "xt_dns", VERSION);
 	return xt_register_matches(dns_reg, ARRAY_SIZE(dns_reg));
 }
 
