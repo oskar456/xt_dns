@@ -1,16 +1,14 @@
 #
 #	xt_dns Makefile
-#       Copyright (c) Ondrej Caletka, 2013
+#       Copyright (c) Ondrej Caletka, 2017
 #	based on xt_dns Makefile (c) Bartlomiej Korupczynski, 2011
 #
-#	This is kernel module used to match DNS MX queries
-# 
 #	This file is distributed under the terms of the GNU General Public
 #	License (GPL). Copies of the GPL can be obtained from gnu.org/gpl.
 #
 
 NAME = xt_dns
-VERSION = 1.3
+VERSION = 1.4
 DISTFILES = *.[ch] Makefile ChangeLog
 
 KVERSION = $(shell uname -r)
